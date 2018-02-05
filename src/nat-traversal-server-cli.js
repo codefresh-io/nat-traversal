@@ -3,14 +3,12 @@
 const { argv } = require('optimist')
   .usage('Usage: $0 --relayPort [port] --servicePort [port]'
          + ' [--host [IP]] [--secret [key]] [--tls] [--pfx [file]]'
-         + ' [--passphrase [passphrase]] [--verbose]')
+         + ' [--passphrase [passphrase]] [--key [file]] [--cert [file]] [--verbose]')
   .demand(['relayPort', 'servicePort'])
   .string('secret')
   .default('tls', false)
   .string('pfx')
-  .default('pfx', 'cert.pfx')
   .string('passphrase')
-  .default('passphrase', 'abcd')
   .default('verbose', false);
 
 const options = {
@@ -19,6 +17,8 @@ const options = {
   tls: argv.tls,
   pfx: argv.pfx,
   passphrase: argv.passphrase,
+  key: argv.key,
+  cert: argv.cert,
   verbose: argv.verbose,
 };
 

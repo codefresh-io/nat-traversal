@@ -3,12 +3,13 @@ const { EventEmitter } = require('events');
 const net = require('net');
 const tls = require('tls');
 const fs = require('fs');
+const pem = require('pem');
 
 let socketPipeId = 1;
 
 class SocketPipe {
 
-  constructor(socket, options) {
+  constructor(socket, options, type) {
 
     // This class is an event emitter. Initialize it
     EventEmitter.call(this);
@@ -20,9 +21,18 @@ class SocketPipe {
     this.options = options || {};
     this.pairedSocket = undefined;
     this.authorized = false;
+    this.type = type;
 
     // Used only if we are waiting for a secret
     this.buffer = [];
+
+  }
+
+  toString() {
+    return `${this.type}:${this.id}`;
+  }
+
+  start() {
 
     // Do we want timeouts?
     this._prepareTimeoutHandler();
@@ -32,14 +42,19 @@ class SocketPipe {
 
   }
 
+  terminate() {
+
+    this.socket.destroy();
+  }
+
   activate(pairedSocket) {
 
     if (this.pairedSocket) {
-      throw new Error(`[${this.id}] Attempted to pair socket more than once.`);
+      throw new Error(`[${this}] Attempted to pair socket more than once.`);
     }
 
     if (this.options.verbose) {
-      console.log(`[${this.id}] Socket pipe activated!`);
+      console.log(`[${this}] Socket pipe activated!`);
     }
 
     this.pairedSocket = pairedSocket;
@@ -48,7 +63,7 @@ class SocketPipe {
     this.pairedSocket.setKeepAlive(true, 120 * 1000);
 
     // If we have any data in the buffer, write it
-    this.writeBuffer();
+    this._writeBuffer();
   }
 
   _registerSocketEventHandlers() {
@@ -56,16 +71,19 @@ class SocketPipe {
     // Configure socket for keeping connections alive
     this.socket.setKeepAlive(true, 120 * 1000);
 
+    // Verify authorization immediately, if we can. If we can't, this will do nothing
+    this._verifyAuthorization();
+
     // New data
     this.socket.on(
       'data',
       (data) => {
 
         // Do we want to check for the secret? Are we authorized?
-        if (!this.authorized) {
+        if (!this.authorized || !this.pairedSocket) {
 
           if (this.options.verbose) {
-            console.log(`[${this.id}] Socket pipe not yet authorized, storing data.`);
+            console.log(`[${this}] Socket pipe not yet authorized, storing data.`);
           }
 
           // Append the new data to the end of the data buffer
@@ -76,13 +94,13 @@ class SocketPipe {
 
         } else {
 
-          // Not authorized - write directly to the socket
+          // Authorized - write directly to the socket
           try {
 
             this.pairedSocket.write(data);
 
           } catch (ex) {
-            console.error(`[${this.id}] Error writing to paired socket: `, ex);
+            console.error(`[${this}] Error writing to paired socket: `, ex);
           }
 
         }
@@ -95,7 +113,7 @@ class SocketPipe {
       (hadError) => {
 
         if (hadError) {
-          console.error(`[${this.id}] Socket was closed with error: `, hadError);
+          console.error(`[${this}] Socket was closed due to error.`);
         }
 
         // Destroy the paired socket too
@@ -106,6 +124,13 @@ class SocketPipe {
         // Mark this socketPipe is closing
         this.emit('close');
 
+      },
+    );
+
+    this.socket.on(
+      'error',
+      (err) => {
+        console.error(`[${this}] Socket error: ${err}`);
       },
     );
   }
@@ -121,10 +146,9 @@ class SocketPipe {
         if (this.options.secret) {
 
           // Timeout?
-          console.error(`[${this.id}] Closing socket due to timeout.`);
+          console.error(`[${this}] Closing socket due to timeout.`);
 
-          this.socket.destroy();
-          this.emit('close');
+          this.terminate();
         }
       },
       this.options.timeout,
@@ -134,51 +158,56 @@ class SocketPipe {
 
   _verifyAuthorization() {
 
-    // Do we have a secret set?
-    if (this.options.secret) {
+    if (!this.authorized) {
 
-      // Yep. Verify it
-      const keyLen = this.options.secret.length;
-      if (this.buffer[0].length >= keyLen &&
-          this.buffer[0].toString(undefined, 0, keyLen) === this.options.secret) {
+      // Do we have a secret set?
+      if (this.options.secret) {
 
-        // Great!
-        // Remove the secret
-        this.buffer[0] = this.buffer[0].slice(keyLen);
+        // Yep. Verify it
+        const keyLen = this.options.secret.length;
+        if (this.buffer.length > 0 &&
+            this.buffer[0].length >= keyLen &&
+            this.buffer[0].toString(undefined, 0, keyLen) === this.options.secret) {
 
-        if (this.options.verbose) {
-          console.log(`[${this.id}] Received valid secret: authorized connection.`);
+          // Great!
+          // Remove the secret
+          this.buffer[0] = this.buffer[0].slice(keyLen);
+
+          if (this.options.verbose) {
+            console.log(`[${this}] Received valid secret: authorized connection.`);
+          }
+
+        } else {
+
+          // Bad secret?
+          console.error(`[${this}] Invalid secret received from incoming connection.`);
+
+          // Destroy the socket, no more traffic
+          this.terminate();
+
+          return;
         }
-
       } else {
 
-        // Bad secret?
-        console.error(`[${this.id}] Invalid secret received from incoming connection.`);
+        // No secret - nothing to check
+        // eslint-disable-next-line no-lonely-if
+        if (this.options.verbose) {
+          console.log(`[${this}] No secret defined - authorizing by default.`);
+        }
 
-        // Destroy the socket, no more traffic
-        this.socket.destroy();
-
-        return;
       }
-    } else {
 
-      // No secret - nothing to check
-      // eslint-disable-next-line no-lonely-if
-      if (this.options.verbose) {
-        console.log(`[${this.id}] No secret defined - authorizing by default.`);
-      }
+      // Mark ourselves as authorized
+      this.authorized = true;
+
+      // And raise an event, to continue creating the socketPipe
+      this.emit('authorized');
 
     }
 
-    // Mark ourselves as authorized
-    this.authorized = true;
-
-    // And raise an event, to continue creating the socketPipe
-    this.emit('authorized');
-
   }
 
-  writeBuffer() {
+  _writeBuffer() {
 
     if (this.authorized && this.buffer.length > 0) {
 
@@ -189,7 +218,7 @@ class SocketPipe {
         }
 
       } catch (ex) {
-        console.error(`[${this.id}] Error writing to paired socket: `, ex);
+        console.error(`[${this}] Error writing to paired socket: `, ex);
       }
 
       // Clear the array
@@ -205,7 +234,7 @@ util.inherits(SocketPipe, EventEmitter);
 
 class SocketListener {
 
-  constructor(port, options) {
+  constructor(port, options, type) {
 
     // This class is an event emitter. Initialize it
     EventEmitter.call(this);
@@ -214,11 +243,14 @@ class SocketListener {
     this.options = options || {};
     this.pendingSocketPipes = [];
     this.activeSocketPipes = [];
+    this.type = type;
+  }
 
+  async start() {
     let listeningServer;
     if (this.options.tls === true) {
       // Support TLS?
-      listeningServer = this._createTLSServer();
+      listeningServer = await this._createTLSServer();
     } else {
       // Simple TCP
       listeningServer = this._createTCPServer();
@@ -227,53 +259,94 @@ class SocketListener {
 
     // Start listening...
     this.relayServer = listeningServer;
-    this.relayServer.listen(port, options.host);
+    this.relayServer.listen(this.port, this.options.host);
 
+    if (this.options.verbose) {
+      console.log(`[${this.type}] Listening...`);
+    }
   }
 
   _createTCPServer() {
 
     if (this.options.verbose) {
-      console.log('Will listen to incoming TCP connections.');
+      console.log(`[${this.type}] Will listen to incoming TCP connections.`);
     }
 
     return net.createServer((socket) => {
 
       if (this.options.verbose) {
-        console.log(`Incoming TCP connection from ${socket.remoteAddress}:${socket.remotePort}`);
+        console.log(`[${this.type}] Incoming TCP connection from ${socket.remoteAddress}:${socket.remotePort}`);
       }
 
-      this._createSocketPipe(socket);
+      this._createSocketPipe(socket, this.type);
 
     });
   }
 
-  _createTLSServer() {
+  async _createTLSServer() {
+
     if (this.options.verbose) {
-      console.log('Will listen to incoming TLS connections.');
+      console.log(`[${this.type}] Will listen to incoming TLS connections.`);
     }
 
-    const tlsOptions = {
-      pfx: fs.readFileSync(this.options.pfx),
-      passphrase: this.options.passphrase,
-    };
+    let tlsOptions;
+    if (this.options.pfx) {
+
+      if (this.options.verbose) {
+        console.log(`[${this.type}] Using pfx file: ${this.options.pfx}`);
+      }
+
+      tlsOptions = {
+        pfx: fs.readFileSync(this.options.pfx),
+        passphrase: this.options.passphrase,
+      };
+
+    } else if (this.options.key && this.options.cert) {
+
+      if (this.options.verbose) {
+        console.log(`[${this.type}] Using cert file: ${this.options.cert} and key file ${this.options.key}`);
+      }
+
+      tlsOptions = {
+        key: fs.readFileSync(this.options.key),
+        cert: fs.readFileSync(this.options.cert),
+        passphrase: this.options.passphrase,
+      };
+
+    } else {
+
+      if (this.options.verbose) {
+        console.log(`[${this.type}] No pfx or key/cert configured - autogenerating TLS key/cert pair.`);
+      }
+
+      const createCertFunc = util.promisify(pem.createCertificate);
+
+      const keys = await createCertFunc({ days: 7, selfSigned: true });
+
+      tlsOptions = {
+        key: keys.serviceKey,
+        cert: keys.certificate,
+      };
+    }
 
     // Create the
-    return tls.createServer(
+    const createdServer = tls.createServer(
       tlsOptions,
       (socket) => {
 
         if (this.options.verbose) {
-          console.log(`Incoming TLS connection from ${socket.remoteAddress}:${socket.remotePort}`);
+          console.log(`[${this.type}] Incoming TLS connection from ${socket.remoteAddress}:${socket.remotePort}`);
         }
 
-        this._createSocketPipe(socket);
+        this._createSocketPipe(socket, this.type);
 
       },
     );
+
+    return createdServer;
   }
 
-  _createSocketPipe(socket) {
+  _createSocketPipe(socket, type) {
 
     const newSocketPipe = new SocketPipe(
       socket,
@@ -282,21 +355,24 @@ class SocketListener {
         timeout: this.options.timeout,
         verbose: this.options.verbose,
       },
+      type,
     );
 
     newSocketPipe.on('authorized', () => {
       if (this.options.verbose) {
-        console.log(`[${newSocketPipe.id}] SocketPipe authorized.`);
+        console.log(`[${newSocketPipe}] SocketPipe authorized.`);
       }
       this.emit('new', newSocketPipe);
     });
 
     newSocketPipe.on('close', () => {
       if (this.options.verbose) {
-        console.log(`[${newSocketPipe.id}] SocketPipe closed connection`);
+        console.log(`[${newSocketPipe}] SocketPipe closed connection`);
       }
       this._removeSocketPipe(newSocketPipe);
     });
+
+    newSocketPipe.start();
 
   }
 
@@ -309,8 +385,8 @@ class SocketListener {
       const pendingSocketPipe = this._getPendingSocketPipe();
 
       if (this.options.verbose) {
-        console.log(`Activating pending SocketPipe: connecting SocketPipes ${
-          pendingSocketPipe.id} and ${connectingSocketPipe.id}`);
+        console.log(`[${this.type}] Activating pending SocketPipe: connecting SocketPipes ${pendingSocketPipe
+        } and ${connectingSocketPipe}`);
       }
 
       // Pair the connecting socketPipe with the pending socketPipe, allow data flow in one direction
@@ -324,7 +400,7 @@ class SocketListener {
     } else {
 
       if (this.options.verbose) {
-        console.log(`[${connectingSocketPipe.id}] SocketPipe will be pending until a client connection occurs`);
+        console.log(`[${connectingSocketPipe}] SocketPipe will be pending until a parallel connection occurs`);
       }
 
       // If we don't then our new connecting socketPipe is now pending and waiting for another connecting socketPipe
@@ -367,15 +443,15 @@ class SocketListener {
   terminate() {
 
     if (this.options.verbose) {
-      console.log('Terminating SocketListener.');
+      console.log(`[${this.type}] Terminating SocketListener.`);
     }
 
     this.relayServer.close();
     for (const socketPipe of this.pendingSocketPipes) {
-      socketPipe.socket.destroy();
+      socketPipe.terminate();
     }
     for (const socketPipe of this.activeSocketPipes) {
-      socketPipe.socket.destroy();
+      socketPipe.terminate();
     }
     this.relayServer.unref();
   }
@@ -391,8 +467,6 @@ class NATTraversalServer {
     internetPort,
     options = {
       tls: false,
-      pfx: 'cert.pfx',
-      passphrase: 'abcd',
     },
   ) {
     this.options = options || {};
@@ -402,38 +476,31 @@ class NATTraversalServer {
 
   start() {
 
-    this.relaySocketListener = new SocketListener(this.relayPort, {
-      host: this.options.host,
-      secret: this.options.secret,
-      tls: this.options.tls,
-      pfx: this.options.pfx,
-      passphrase: this.options.passphrase,
-      verbose: this.options.verbose,
-    });
+    this.relaySocketListener = new SocketListener(this.relayPort, this.options, 'relay');
     this.relaySocketListener.on('new', (connectingSocketPipe) => {
-
-      if (this.options.verbose) {
-        console.log(`[${connectingSocketPipe.id}] New socketPipe created by connection on relay socket.`);
-      }
 
       this.internetSocketListener.activateSocketPipe(this.relaySocketListener, connectingSocketPipe);
 
     });
+    this.relaySocketListener.start();
 
-    this.internetSocketListener = new SocketListener(this.internetPort, {
-      host: this.options.host,
-      timeout: 20000,
-      verbose: this.options.verbose,
-    });
+    this.internetSocketListener =
+      new SocketListener(
+        this.internetPort,
+        {
+          host: this.options.host,
+          timeout: 20000,
+          verbose: this.options.verbose,
+        },
+        'service',
+      );
     this.internetSocketListener.on('new', (connectingSocketPipe) => {
-
-      if (this.options.verbose) {
-        console.log(`[${connectingSocketPipe.id}] New socketPipe created by connection on internet socket.`);
-      }
 
       this.relaySocketListener.activateSocketPipe(this.internetSocketListener, connectingSocketPipe);
 
     });
+    this.internetSocketListener.start();
+
   }
 
   terminate() {

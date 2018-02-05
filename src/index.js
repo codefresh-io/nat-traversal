@@ -1,4 +1,5 @@
-const { NATTraversalClient, NATTraversalServer } = require('./server').NATTraversalServer;
+const { NATTraversalServer } = require('./server');
+const { NATTraversalClient } = require('./client');
 
 module.exports = {
   NATTraversalClient,

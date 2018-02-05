@@ -2,7 +2,7 @@
     "name": "nat-traversal",
     "description": "A simple TCP NAT traversal solution built using Node.js, that supports TLS connections.",
     "license": "MIT",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "main": "src/index.js",
     "repository": {
         "type": "git",
@@ -13,7 +13,8 @@
         "nat-traversal-server": "./src/nat-traversal-server-cli.js"
     },
     "dependencies": {
-        "optimist": "^0.6.1"
+        "optimist": "^0.6.1",
+        "pem": "^1.12.3"
     },
     "devDependencies": {
         "eslint": "^4.0.0",
