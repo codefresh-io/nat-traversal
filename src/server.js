@@ -1,5 +1,5 @@
 const util = require('util');
-const EventEmitter = require('events').EventEmitter;
+const { EventEmitter } = require('events');
 const net = require('net');
 const tls = require('tls');
 const fs = require('fs');
@@ -309,9 +309,8 @@ class SocketListener {
       const pendingSocketPipe = this._getPendingSocketPipe();
 
       if (this.options.verbose) {
-        console.log(
-          `Activating pending SocketPipe: connecting SocketPipes ${
-            pendingSocketPipe.id} and ${connectingSocketPipe.id}`);
+        console.log(`Activating pending SocketPipe: connecting SocketPipes ${
+          pendingSocketPipe.id} and ${connectingSocketPipe.id}`);
       }
 
       // Pair the connecting socketPipe with the pending socketPipe, allow data flow in one direction
@@ -399,14 +398,17 @@ class NATTraversalServer {
     this.options = options || {};
     this.relayPort = relayPort;
     this.internetPort = internetPort;
+  }
+
+  start() {
 
     this.relaySocketListener = new SocketListener(this.relayPort, {
-      host: options.host,
-      secret: options.secret,
-      tls: options.tls,
-      pfx: options.pfx,
-      passphrase: options.passphrase,
-      verbose: options.verbose,
+      host: this.options.host,
+      secret: this.options.secret,
+      tls: this.options.tls,
+      pfx: this.options.pfx,
+      passphrase: this.options.passphrase,
+      verbose: this.options.verbose,
     });
     this.relaySocketListener.on('new', (connectingSocketPipe) => {
 
@@ -419,9 +421,9 @@ class NATTraversalServer {
     });
 
     this.internetSocketListener = new SocketListener(this.internetPort, {
-      host: options.host,
+      host: this.options.host,
       timeout: 20000,
-      verbose: options.verbose,
+      verbose: this.options.verbose,
     });
     this.internetSocketListener.on('new', (connectingSocketPipe) => {
 
