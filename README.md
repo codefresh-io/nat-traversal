@@ -104,7 +104,7 @@ const natTraversalClient =
             verbose: false
         }
     );
-natTraversalServer.client();
+natTraversalServer.start();
 ```
 
 Terminate NAT traversal client:
