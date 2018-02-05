@@ -1,10 +1,8 @@
-# nat-traversal
+# nat-traversal [![NPM version](https://img.shields.io/npm/v/nat-traversal.svg?style=flat)](https://www.npmjs.com/package/nat-traversal) [![NPM downloads](https://img.shields.io/npm/dm/nat-traversal.svg?style=flat)](https://npmjs.org/package/nat-traversal)
 
->  nat-traversal is a package that contains a relay server and client that can be used to perform NAT traversal, i.e. expose any TCP/IP service running behind a NAT. This includes services that use HTTP and SSH.
+>  nat-traversal is a Node.js package that contains a relay server and client that can be used to perform NAT traversal, i.e. expose any TCP/IP service running behind a NAT. This includes services that use HTTP and SSH.
 
 Developed in [Codefresh](https://www.codefresh.io).
-
-This package is a heavily refactored, updated and improved version of <a href="https://www.npmjs.com/package/node-tcp-relay">node-tcp-relay</a>.
 
 ### Features
 
@@ -44,7 +42,7 @@ Optionally, `hostname` specifies the IP address to listen at (bind to). Node.js 
 The relay client is meant to be executed on a machine behind a NAT, as follows
 
 ```bash
-tcprelayc --host HIDDENSERVICE --port 80 --relayHost host --relayPort port [--numConn count] [--secret key] [--tls] [--rejectUnauthorized] [--verbose]
+nat-traversal-client --host HIDDENSERVICE --port 80 --relayHost host --relayPort port [--numConn count] [--secret key] [--tls] [--rejectUnauthorized] [--verbose]
 ```
 
 `host` is any server visible to the machine behind the NAT.
@@ -66,8 +64,20 @@ lead to denial of service.
 Create and start a NAT traversal server thus:
 
 ```javascript
-const natTraversal = require("nat-traversal");
-const natTraversalServer = natTraversal.createServer(10080, 10081);
+const { NATTraversalServer } = require('nat-traversal');
+const natTraversalServer =
+    new NATTraversalServer(
+        10080,
+        10081,
+        {
+            host: "0.0.0.0",
+            tls: true,
+            pfx: "/path/to/pfx/file",
+            passphrase: "password of pfx file",
+            secret: "a secret sent to the server",
+            verbose: false
+        }
+    );
 ```
 
 Terminate NAT traversal server:
@@ -79,8 +89,20 @@ natTraversalServer.terminate();
 Create and start a NAT traversal client thus:
 
 ```javascript
-const natTraversal = require("nat-traversal");
-const natTraversalClient = natTraversal.createClient("hostname", 80, "relayserver", 10080, 1);
+const { NATTraversalClient } = require('nat-traversal');
+const natTraversalClient =
+    new NATTraversalClient(
+        "hostname",
+        80,
+        "relayserver",
+        10080,
+        {
+            numConn: 5,
+            tls: true,
+            secret: "a secret sent to the server",
+            verbose: false
+        }
+    );
 ```
 
 Terminate NAT traversal client:
@@ -96,7 +118,7 @@ natTraversalClient.terminate();
 * [github/advance512](https://github.com/advance512)
 * [Homepage](http://www.alondiamant.com)
 
-Based on <a href="https://github.com/tewarid/node-tcp-relay">node-tcp-relay</a> by <a href="https://github.com/tewarid">tewarid</a> (Devendra Tewari).
+This package is a heavily refactored (to ES6+ standards) and updated version of <a href="https://github.com/tewarid/node-tcp-relay">node-tcp-relay</a> by <a href="https://github.com/tewarid">tewarid</a> (Devendra Tewari).
 
 ## Alternatives
 
