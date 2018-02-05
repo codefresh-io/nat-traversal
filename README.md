@@ -78,6 +78,7 @@ const natTraversalServer =
             verbose: false
         }
     );
+natTraversalServer.start();
 ```
 
 Terminate NAT traversal server:
@@ -103,6 +104,7 @@ const natTraversalClient =
             verbose: false
         }
     );
+natTraversalServer.client();
 ```
 
 Terminate NAT traversal client:

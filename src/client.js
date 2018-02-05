@@ -1,5 +1,5 @@
 const util = require('util');
-const EventEmitter = require('events').EventEmitter;
+const { EventEmitter } = require('events');
 const net = require('net');
 const tls = require('tls');
 
@@ -253,18 +253,26 @@ class NATTraversalClient {
     this.port = port;
     this.relayHost = relayHost;
     this.relayPort = relayPort;
-
     this.options = options;
 
     this.socketPipes = [];
+  }
 
+  start() {
     // Create pending socketPipes
     for (let i = 0; i < this.options.numConn; i += 1) {
-      this.createSocketPipe(host, port, relayHost, relayPort, options);
+      this._createSocketPipe(this.host, this.port, this.relayHost, this.relayPort, this.options);
     }
   }
 
-  createSocketPipe(host, port, relayHost, relayPort, options) {
+  terminate() {
+    this.terminating = true;
+    for (const socketPipe of this.socketPipes) {
+      socketPipe.terminate();
+    }
+  }
+
+  _createSocketPipe(host, port, relayHost, relayPort, options) {
 
     // Create a new socketPipe
     const socketPipe = new SocketPipe(host, port, relayHost, relayPort, options);
@@ -275,7 +283,7 @@ class NATTraversalClient {
       () => {
 
         // Create a new pending socketPipe
-        this.createSocketPipe(host, port, relayHost, relayPort, options);
+        this._createSocketPipe(host, port, relayHost, relayPort, options);
       },
     );
 
@@ -296,7 +304,7 @@ class NATTraversalClient {
             }
 
             // Create a new pending socketPipe
-            this.createSocketPipe(host, port, relayHost, relayPort, options);
+            this._createSocketPipe(host, port, relayHost, relayPort, options);
           },
           5000,
         );
@@ -316,12 +324,6 @@ class NATTraversalClient {
     }
   }
 
-  terminate() {
-    this.terminating = true;
-    for (const socketPipe of this.socketPipes) {
-      socketPipe.terminate();
-    }
-  }
 }
 
 module.exports = {

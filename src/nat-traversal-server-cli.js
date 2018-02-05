@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const argv = require('optimist')
+const { argv } = require('optimist')
   .usage('Usage: $0 --relayPort [port] --servicePort [port]'
          + ' [--host [IP]] [--secret [key]] [--tls] [--pfx [file]]'
          + ' [--passphrase [passphrase]] [--verbose]')
@@ -11,8 +11,7 @@ const argv = require('optimist')
   .default('pfx', 'cert.pfx')
   .string('passphrase')
   .default('passphrase', 'abcd')
-  .default('verbose', false)
-  .argv;
+  .default('verbose', false);
 
 const options = {
   host: argv.host,
@@ -36,6 +35,7 @@ const natTraversalServer = new NATTraversalServer(
   argv.servicePort,
   options,
 );
+natTraversalServer.start();
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception: ', err);
