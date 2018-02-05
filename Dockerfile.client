@@ -16,4 +16,4 @@ RUN npm install
 # Bundle app source
 COPY . .
 
-CMD [ "sh", "-c", "./src/nat-traversal-client-cli.js --relayHost $RELAYHOST --relayPort $RELAYPORT --host $KUBERNETES_SERVICE_HOST --port $KUBERNETES_SERVICE_PORT --secret $RELAYSECRET --tls --verbose" ]
+CMD [ "sh", "-c", "./src/nat-traversal-client-cli.js --relayHost $RELAYHOST --relayPort $RELAYPORT --host $TARGETHOST --port $TARGETPORT --secret $RELAYSECRET --tls --verbose" ]

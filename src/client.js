@@ -281,7 +281,7 @@ class NATTraversalClient {
   _createSocketPipe(host, port, relayHost, relayPort, options) {
 
     // Create a new socketPipe
-    const socketPipe = new SocketPipe(host, port, relayHost, relayPort, options, "relay");
+    const socketPipe = new SocketPipe(host, port, relayHost, relayPort, options, 'relay');
     this.socketPipes.push(socketPipe);
 
     socketPipe.on(
