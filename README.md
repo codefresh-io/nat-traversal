@@ -7,7 +7,8 @@ Developed in [Codefresh](https://www.codefresh.io).
 ### Features
 
 * Programmatic and CLI usage
-* Supports TLS connections between relay server and client
+* Supports TLS connections between relay server and client (using pfx or key/cert, optional passphrase)
+* Automatically generate self-signed key/cert if none configured, using <a href="https://www.npmjs.com/package/pem">pem</a>
 * Supports TLS identity verification
 * Supports secret authentication between client and server
 * Supports multiple connections
@@ -16,7 +17,7 @@ Developed in [Codefresh](https://www.codefresh.io).
 
 ### Installation
 
-To install from  <a href="https://www.npmjs.com/package/nat-traversal">npm</a>
+To install from <a href="https://www.npmjs.com/package/nat-traversal">npm</a>
 ```bash
 yarn add nat-traversal
 ```
