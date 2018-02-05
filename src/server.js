@@ -163,10 +163,14 @@ class SocketPipe {
       // Do we have a secret set?
       if (this.options.secret) {
 
-        // Yep. Verify it
+        // If we haven't received any data - just return.
+        if (this.buffer.length === 0) {
+          return;
+        }
+
+        // Otherwise, we have data. Verify it
         const keyLen = this.options.secret.length;
-        if (this.buffer.length > 0 &&
-            this.buffer[0].length >= keyLen &&
+        if (this.buffer[0].length >= keyLen &&
             this.buffer[0].toString(undefined, 0, keyLen) === this.options.secret) {
 
           // Great!
@@ -187,6 +191,7 @@ class SocketPipe {
 
           return;
         }
+
       } else {
 
         // No secret - nothing to check
