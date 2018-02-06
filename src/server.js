@@ -322,16 +322,19 @@ class SocketListener {
 
       if (!this.options.silent) {
         console.log(`[${this.type}] No pfx or key/cert configured - autogenerating TLS key/cert pair.`);
+        console.log(`[${this.type}] Self-signing key/cert for common name ${this.options.tlsCommonName} ` +
+                    'that will expire in 7 days.');
       }
 
       const createCertFunc = util.promisify(pem.createCertificate);
 
-      const keys =
-        await createCertFunc({
-          days: 7,
-          selfSigned: true,
-          commonName: this.options.tlsCommonName,
-        });
+      const keys = await createCertFunc({
+        days: 7,
+        selfSigned: true,
+        commonName: this.options.tlsCommonName,
+      });
+
+      console.log(keys);
 
       tlsOptions = {
         key: keys.serviceKey,
