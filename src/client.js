@@ -6,7 +6,7 @@ const tls = require('tls');
 let socketPipeId = 1;
 
 class SocketPipe {
-  constructor(targetHost, targetPort, relayHost, relayPort, options, type) {
+  constructor(targetHost, targetPort, relayHost, relayPort, options) {
 
     // This class is an event emitter. Initialize it
     EventEmitter.call(this);
