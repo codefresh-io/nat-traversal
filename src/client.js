@@ -19,22 +19,17 @@ class SocketPipe {
     this.relayHost = relayHost;
     this.relayPort = relayPort;
     this.options = options;
-    this.type = type;
 
     this.targetSocket = undefined;
     this.targetSocketPending = true;
     this.buffer = [];
 
     if (!this.options.silent) {
-      console.log(`[${this}] Created new pending SocketPipe.`);
+      console.log(`[relay:${this.id}] Created new pending SocketPipe.`);
     }
 
     this._openRelayEnd();
 
-  }
-
-  toString() {
-    return `${this.type}:${this.id}`;
   }
 
   _openRelayEnd() {
@@ -43,7 +38,7 @@ class SocketPipe {
     if (this.options.relayTls) {
 
       if (!this.options.silent) {
-        console.log(`[${this}] Socket pipe will use TLS connection to connect to relay server.`);
+        console.log(`[relay:${this.id}] Socket pipe will use TLS connection to connect to relay server.`);
       }
 
       this.relaySocket =
@@ -55,7 +50,7 @@ class SocketPipe {
           },
           () => {
             if (!this.options.silent) {
-              console.log(`[${this}] Created new TLS connection.`);
+              console.log(`[relay:${this.id}] Created new TLS connection.`);
             }
 
             // Configure socket for keeping connections alive
@@ -68,7 +63,7 @@ class SocketPipe {
     } else {
 
       if (!this.options.silent) {
-        console.log(`[${this}] Socket pipe will TCP connection to connect to relay server.`);
+        console.log(`[relay:${this.id}] Socket pipe will TCP connection to connect to relay server.`);
       }
 
       // Or use TCP
@@ -79,7 +74,7 @@ class SocketPipe {
         this.relayHost,
         () => {
           if (!this.options.silent) {
-            console.log(`[${this}] Created new TCP connection.`);
+            console.log(`[relay:${this.id}] Created new TCP connection.`);
           }
 
           // Configure socket for keeping connections alive
@@ -103,7 +98,7 @@ class SocketPipe {
         if (this.targetSocket === undefined) {
 
           // Create a target socket for the relay socket - connecting to the target
-          this._openServiceEnd(this.host, this.targetPort);
+          this._openTargetEnd();
 
           this.emit('pair');
         }
@@ -120,7 +115,7 @@ class SocketPipe {
             // Or just pass it directly
             this.targetSocket.write(data);
           } catch (ex) {
-            console.error(`[${this}] Error writing to target socket: `, ex);
+            console.error(`[relay:${this.id}] Error writing to target socket: `, ex);
           }
 
         }
@@ -133,7 +128,7 @@ class SocketPipe {
       (hadError) => {
 
         if (hadError) {
-          console.error(`[${this}] Relay socket closed with error.`);
+          console.error(`[relay:${this.id}] Relay socket closed with error.`);
         }
 
         if (this.targetSocket !== undefined) {
@@ -150,7 +145,7 @@ class SocketPipe {
     );
 
     this.relaySocket.on('error', (error) => {
-      console.error(`[${this}] Error with relay socket: `, error);
+      console.error(`[relay:${this.id}] Error with relay socket: `, error);
     });
 
   }
@@ -160,59 +155,88 @@ class SocketPipe {
     // Got a secret?
     if (this.options.relaySecret) {
       if (!this.options.silent) {
-        console.log(`[${this}] Sending authorization to relay server and waiting for incoming data.`);
+        console.log(`[relay:${this.id}] Sending authorization to relay server and waiting for incoming data.`);
       }
 
       try {
         // Write it to the relay!
         this.relaySocket.write(this.options.relaySecret);
       } catch (ex) {
-        console.error(`[${this}] Error writing to relay socket: `, ex);
+        console.error(`[relay:${this.id}] Error writing to relay socket: `, ex);
       }
 
     }
 
   }
 
-  _openServiceEnd(targetHost, targetPort) {
-
+  _handleTargetEndConnection() {
     if (!this.options.silent) {
-      console.log(`[${this}] Authorized by relay server. Creating new connection to target ${targetHost}:${targetPort}...`);
+      console.log(`[target:${this.id}] Successfully connected via ${this.options.targetTls ? 'TLS' : 'TCP'} ` +
+                  `to target ${this.targetHost}:${this.targetPort}.`);
     }
 
-    // Create a new target socket
-    this.targetSocket = new net.Socket();
+    // Configure socket for keeping connections alive
+    this.targetSocket.setKeepAlive(true, 120 * 1000);
 
-    // Connect it immediately
-    this.targetSocket.connect(
-      targetPort,
-      targetHost,
-      () => {
+    // Connected, not pending anymore
+    this.targetSocketPending = false;
 
-        if (!this.options.silent) {
-          console.log(`[${this}] Connected to target ${targetHost}:${targetPort}.`);
-        }
+    // And if we have any buffered data, forward it
+    try {
+      for (const bufferItem of this.buffer) {
+        this.targetSocket.write(bufferItem);
+      }
+    } catch (ex) {
+      console.error(`[target:${this.id}] Error writing to target socket: `, ex);
+    }
 
-        // Configure socket for keeping connections alive
-        this.targetSocket.setKeepAlive(true, 120 * 1000);
+    // Clear the array
+    this.buffer.length = 0;
+  }
 
-        // Connected, not pending anymore
-        this.targetSocketPending = false;
+  _openTargetEnd() {
 
-        // And if we have any buffered data, forward it
-        try {
-          for (const bufferItem of this.buffer) {
-            this.targetSocket.write(bufferItem);
-          }
-        } catch (ex) {
-          console.error(`[${this}] Error writing to target socket: `, ex);
-        }
+    if (!this.options.silent) {
+      console.log(`[relay:${this.id}] Authorized by relay server. Creating new connection ` +
+                  `to target ${this.targetHost}:${this.targetPort}...`);
+    }
 
+    // Use TLS?
+    if (this.options.targetTls) {
 
-        // Clear the array
-        this.buffer.length = 0;
-      },
-    );
+      if (!this.options.silent) {
+        console.log(`[target:${this.id}] Socket pipe will use TLS connection to connect to target server.`);
+      }
+
+      this.targetSocket =
+        tls.connect(
+          this.targetPort,
+          this.targetHost,
+          {
+            rejectUnauthorized: this.options.targetVerifyCert,
+          },
+          () => {
+            this._handleTargetEndConnection();
+          },
+        );
+
+    } else {
+
+      if (!this.options.silent) {
+        console.log(`[target:${this.id}] Socket pipe will TCP connection to connect to target server.`);
+      }
+
+      // Or use TCP
+      this.targetSocket = new net.Socket();
+
+      this.targetSocket.connect(
+        this.targetPort,
+        this.targetHost,
+        () => {
+          this._handleTargetEndConnection();
+        },
+      );
+    }
 
     // Got data from the target socket?
     this.targetSocket.on('data', (data) => {
@@ -221,7 +245,7 @@ class SocketPipe {
         // Forward it!
         this.relaySocket.write(data);
       } catch (ex) {
-        console.error(`[${this}] Error writing to relay socket: `, ex);
+        console.error(`target:${this.id}] Error writing to target socket: `, ex);
       }
 
     });
@@ -229,7 +253,7 @@ class SocketPipe {
     this.targetSocket.on('error', (hadError) => {
 
       if (hadError) {
-        console.error(`[${this}] Service socket was closed with error: `, hadError);
+        console.error(`[target:${this.id}] Target socket was closed with error: `, hadError);
       }
 
       this.relaySocket.terminate();
@@ -240,7 +264,7 @@ class SocketPipe {
   terminate() {
 
     if (!this.options.silent) {
-      console.log(`[${this}] Terminating socket pipe...`);
+      console.log(`[relay:${this.id}] Terminating socket pipe...`);
     }
 
     this.removeAllListeners();
@@ -289,7 +313,7 @@ class NATTraversalClient {
   _createSocketPipe(targetHost, targetPort, relayHost, relayPort, options) {
 
     // Create a new socketPipe
-    const socketPipe = new SocketPipe(targetHost, targetPort, relayHost, relayPort, options, 'relay');
+    const socketPipe = new SocketPipe(targetHost, targetPort, relayHost, relayPort, options);
     this.socketPipes.push(socketPipe);
 
     socketPipe.on(
