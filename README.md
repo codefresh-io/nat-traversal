@@ -9,11 +9,13 @@ Developed in [Codefresh](https://www.codefresh.io).
 * Programmatic and CLI usage
 * Supports TLS connections between relay server and client (using pfx or key/cert, optional passphrase)
 * Automatically generate self-signed key/cert if none configured, using <a href="https://www.npmjs.com/package/pem">pem</a>
+* Supports TLS connections from client apps (connection initiators) to relay server
+* Supports TLS connections from relay client to target server (connection receiver)
 * Supports TLS identity verification
-* Supports secret authentication between client and server
+* Supports shared-secret authentication between client and server
 * Supports multiple connections
 * Keeps connections alive
-* Quiet mode (by default) and silent mode
+* Verbose mode (by default) and silent mode
 
 ### Installation
 
@@ -27,38 +29,55 @@ yarn add nat-traversal
 The relay server is meant to be executed on a server visible on the internet, as follows
 
 ```bash
-nat-traversal-server --relayPort 10080 --servicePort 10081 [--hostname [IP]] [--secret key] [--tls] [--pfx file] [--passphrase passphrase] [--silent]
+nat-traversal-server [--publicHost [IP]] --publicPort 10081 [--relayHost [IP]] --relayPort 10080 [--relaySecret key] [--relayTls] [--relayPfx file] [--relayKey file] [--relayCert file] [--relayPassphrase passphrase] [--publicTls] [--publicPfx file] [--publicKey file] [--publicCert file] [--publicPassphrase passphrase]  [--silent]
 ```
 
+`relayHost` specifies the IP address to listen at (bind to). Node.js listens on unspecified IPv6 address `::` by default.
 `relayPort` is the port where the relay server will listen for incoming connections from the relay client.
-`servicePort` is the port where internet clients can connect to the service exposed through the relay.
-Optionally, `hostname` specifies the IP address to listen at (bind to). Node.js listens on unspecified IPv6 address `::` by default.
+`publicHost` specifies the IP address to listen at (bind to). Node.js listens on unspecified IPv6 address `::` by default.
+`publicPort` is the port where internet clients can connect to the service exposed through the relay.
 
-`secret` specifies a shared secret key used to authorize relay clients.
-`tls` option enables secure communication with relay client using TLS.
-`pfx` option specifies a private key file used to establish TLS.
-`passphrase` specifies password used to protect private key.
-`silent` outputs logs as the server is executed.
+`relaySecret` specifies a shared secret key used to authorize relay clients.
+
+`relayTls` option enables secure communication with relay client using TLS.
+`relayCertCN` option sets the Common Name for the server if auto-generating TLS certificates, for the verifyCerts option on the client. This should probably be the relay endpoint hostname.
+`relayPfx` option specifies a PFX file used to establish TLS on the relay endpoint
+`relayKey` option specifies a private key file used to establish TLS on the relay endpoint
+`relayCert` option specifies a certificate key file used to establish TLS on the relay endpoint
+`relayPassphrase` specifies password used to protect pfx/key/cert on the relay endpoint
+
+`publicTls` option enables secure communication with public client using TLS.
+`publicCertCN` option sets the Common Name for the server if auto-generating TLS certificates, for the verifyCerts option on the client. This should probably be the public endpoint hostname.
+`publicPfx` option specifies a PFX file used to establish TLS on the public endpoint
+`publicKey` option specifies a private key file used to establish TLS on the public endpoint
+`publicCert` option specifies a certificate key file used to establish TLS on the public endpoint
+`publicPassphrase` specifies password used to protect pfx/key/cert on the public endpoint
+
+`silent` silence outputted logs as the server is executed.
 
 The relay client is meant to be executed on a machine behind a NAT, as follows
 
 ```bash
-nat-traversal-client --host HIDDENSERVICE --port 80 --relayHost host --relayPort port [--numConn count] [--secret key] [--tls] [--rejectUnauthorized] [--silent]
+nat-traversal-client --targetHost TARGETHOST --targetPort 80 --relayHost RELAYHOST --relayPort 10080 [--relayNumConn count] [--relaySecret key] [--relayTls] [--relayVerifyCert] [--publicTls] [--publicVerifyCert] [--silent]
 ```
 
-`host` is any server visible to the machine behind the NAT.
-`port` is the port of the service you want to expose through the relay.
-
-`relayServer` is the host name or IP address of the server visible on the internet executing the relay server.
+`targetHost` is any target server to expose behind the NAT.
+`targetPort` is the port of the target server.
+`relayServer` is the host name or IP address of the relay server.
 `relayPort` is the relay server port where the client will connect.
-`numConn` is the number of unused connections relay client maintains with the server. As soon as it detects data
+
+`relaySecret` specifies a shared secret key relay client sends to server for the purpose of authorization.
+`relayNumConn` is the number of unused connections relay client maintains with the server. As soon as it detects data
 activity on a socket, it establishes another connection. Servicing internet clients that don't transfer any data may
 lead to denial of service.
 
-`secret` specifies a shared secret key relay client sends to server for the purpose of authorization.
-`tls` enables secure TLS communication with the relay server.
-`rejectUnauthorized` enables checking for valid server certificate.
-`silent` outputs logs as the client is executed.
+`relayTls` enables secure TLS communication with the relay server.
+`relayVerifyCert` enables checking for valid server certificate on the relay server.
+
+`publicTls` enables secure TLS communication with the relay server.
+`publicVerifyCert` enables checking for valid server certificate on the relay server.
+
+`silent` silence outputted logs as the client is executed.
 
 ## Library Usage
 
