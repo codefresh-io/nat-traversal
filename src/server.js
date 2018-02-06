@@ -53,7 +53,7 @@ class SocketPipe {
       throw new Error(`[${this}] Attempted to pair socket more than once.`);
     }
 
-    if (this.options.verbose) {
+    if (!this.options.silent) {
       console.log(`[${this}] Socket pipe activated!`);
     }
 
@@ -82,7 +82,7 @@ class SocketPipe {
         // Do we want to check for the secret? Are we authorized?
         if (!this.authorized || !this.pairedSocket) {
 
-          if (this.options.verbose) {
+          if (!this.options.silent) {
             console.log(`[${this}] Socket pipe not yet authorized, storing data.`);
           }
 
@@ -177,7 +177,7 @@ class SocketPipe {
           // Remove the secret
           this.buffer[0] = this.buffer[0].slice(keyLen);
 
-          if (this.options.verbose) {
+          if (!this.options.silent) {
             console.log(`[${this}] Received valid secret: authorized connection.`);
           }
 
@@ -196,7 +196,7 @@ class SocketPipe {
 
         // No secret - nothing to check
         // eslint-disable-next-line no-lonely-if
-        if (this.options.verbose) {
+        if (!this.options.silent) {
           console.log(`[${this}] No secret defined - authorizing by default.`);
         }
 
@@ -266,20 +266,20 @@ class SocketListener {
     this.relayServer = listeningServer;
     this.relayServer.listen(this.port, this.options.host);
 
-    if (this.options.verbose) {
-      console.log(`[${this.type}] Listening...`);
+    if (!this.options.silent) {
+      console.log(`[${this.type}] Listening on port ${this.port}...`);
     }
   }
 
   _createTCPServer() {
 
-    if (this.options.verbose) {
+    if (!this.options.silent) {
       console.log(`[${this.type}] Will listen to incoming TCP connections.`);
     }
 
     return net.createServer((socket) => {
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${this.type}] Incoming TCP connection from ${socket.remoteAddress}:${socket.remotePort}`);
       }
 
@@ -290,14 +290,14 @@ class SocketListener {
 
   async _createTLSServer() {
 
-    if (this.options.verbose) {
+    if (!this.options.silent) {
       console.log(`[${this.type}] Will listen to incoming TLS connections.`);
     }
 
     let tlsOptions;
     if (this.options.pfx) {
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${this.type}] Using pfx file: ${this.options.pfx}`);
       }
 
@@ -308,7 +308,7 @@ class SocketListener {
 
     } else if (this.options.key && this.options.cert) {
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${this.type}] Using cert file: ${this.options.cert} and key file ${this.options.key}`);
       }
 
@@ -320,13 +320,18 @@ class SocketListener {
 
     } else {
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${this.type}] No pfx or key/cert configured - autogenerating TLS key/cert pair.`);
       }
 
       const createCertFunc = util.promisify(pem.createCertificate);
 
-      const keys = await createCertFunc({ days: 7, selfSigned: true });
+      const keys =
+        await createCertFunc({
+          days: 7,
+          selfSigned: true,
+          commonName: this.options.tlsCommonName,
+        });
 
       tlsOptions = {
         key: keys.serviceKey,
@@ -339,7 +344,7 @@ class SocketListener {
       tlsOptions,
       (socket) => {
 
-        if (this.options.verbose) {
+        if (!this.options.silent) {
           console.log(`[${this.type}] Incoming TLS connection from ${socket.remoteAddress}:${socket.remotePort}`);
         }
 
@@ -358,20 +363,20 @@ class SocketListener {
       {
         secret: this.options.secret,
         timeout: this.options.timeout,
-        verbose: this.options.verbose,
+        silent: this.options.silent,
       },
       type,
     );
 
     newSocketPipe.on('authorized', () => {
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${newSocketPipe}] SocketPipe authorized.`);
       }
       this.emit('new', newSocketPipe);
     });
 
     newSocketPipe.on('close', () => {
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${newSocketPipe}] SocketPipe closed connection`);
       }
       this._removeSocketPipe(newSocketPipe);
@@ -389,7 +394,7 @@ class SocketListener {
       // Get the current pending socketPipe
       const pendingSocketPipe = this._getPendingSocketPipe();
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${this.type}] Activating pending SocketPipe: connecting SocketPipes ${pendingSocketPipe
         } and ${connectingSocketPipe}`);
       }
@@ -404,7 +409,7 @@ class SocketListener {
 
     } else {
 
-      if (this.options.verbose) {
+      if (!this.options.silent) {
         console.log(`[${connectingSocketPipe}] SocketPipe will be pending until a parallel connection occurs`);
       }
 
@@ -447,7 +452,7 @@ class SocketListener {
 
   terminate() {
 
-    if (this.options.verbose) {
+    if (!this.options.silent) {
       console.log(`[${this.type}] Terminating SocketListener.`);
     }
 
@@ -468,49 +473,91 @@ util.inherits(SocketListener, EventEmitter);
 class NATTraversalServer {
 
   constructor(
+    publicHost,
+    publicPort,
+    relayHost,
     relayPort,
-    internetPort,
     options = {
-      tls: false,
+      publicTimeout: 20000,
+      publicTls: false,
+      publicCertCN: null,
+      publicPfx: null,
+      publicPassphrase: null,
+      publicKey: null,
+      publicCert: null,
+      relayTimeout: 20000,
+      relayCertCN: null,
+      relayTls: true,
+      relayPfx: null,
+      relayPassphrase: null,
+      relayKey: null,
+      relayCert: null,
+      relaySecret: null,
+      silent: false,
     },
   ) {
     this.options = options || {};
+    this.publicHost = publicHost;
+    this.publicPort = publicPort;
+    this.relayHost = relayHost;
     this.relayPort = relayPort;
-    this.internetPort = internetPort;
   }
 
   start() {
 
-    this.relaySocketListener = new SocketListener(this.relayPort, this.options, 'relay');
+    this.relaySocketListener =
+      new SocketListener(
+        this.relayPort,
+        {
+          host: this.relayHost,
+          timeout: this.options.relayTimeout,
+          tls: this.options.relayTls,
+          tlsCommonName: this.options.relayCertCN,
+          pfx: this.options.relayPfx,
+          passphrase: this.options.relayPassphrase,
+          key: this.options.relayKey,
+          cert: this.options.relayCert,
+          secret: this.options.relaySecret,
+          silent: this.options.silent,
+        },
+        'relay',
+      );
     this.relaySocketListener.on('new', (connectingSocketPipe) => {
 
-      this.internetSocketListener.activateSocketPipe(this.relaySocketListener, connectingSocketPipe);
+      this.publicSocketListener.activateSocketPipe(this.relaySocketListener, connectingSocketPipe);
 
     });
     this.relaySocketListener.start();
 
-    this.internetSocketListener =
+    this.publicSocketListener =
       new SocketListener(
-        this.internetPort,
+        this.publicPort,
         {
-          host: this.options.host,
-          timeout: 20000,
-          verbose: this.options.verbose,
+          host: this.publicHost,
+          timeout: this.options.publicTimeout,
+          tls: this.options.publicTls,
+          tlsCommonName: this.options.publicCertCN,
+          pfx: this.options.publicPfx,
+          passphrase: this.options.publicPassphrase,
+          key: this.options.publicKey,
+          cert: this.options.publicCert,
+          secret: null,
+          silent: this.options.silent,
         },
-        'service',
+        'public',
       );
-    this.internetSocketListener.on('new', (connectingSocketPipe) => {
+    this.publicSocketListener.on('new', (connectingSocketPipe) => {
 
-      this.relaySocketListener.activateSocketPipe(this.internetSocketListener, connectingSocketPipe);
+      this.relaySocketListener.activateSocketPipe(this.publicSocketListener, connectingSocketPipe);
 
     });
-    this.internetSocketListener.start();
+    this.publicSocketListener.start();
 
   }
 
   terminate() {
     this.relaySocketListener.terminate();
-    this.internetSocketListener.terminate();
+    this.publicSocketListener.terminate();
   }
 
 }

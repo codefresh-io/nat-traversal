@@ -16,4 +16,4 @@ RUN npm install
 # Bundle app source
 COPY . .
 
-CMD [ "./src/nat-traversal-server-cli.js", "--relayPort $RELAYPORT --servicePort $SERVICEPORT --secret $RELAYSECRET --tls --verbose" ]
+CMD [ "sh", "-c", "./src/nat-traversal-server-cli.js", "--publicPort $PUBLICPORT --relayPort $RELAYPORT --relayTls --relaySecret $RELAYSECRET " ]

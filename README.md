@@ -13,7 +13,7 @@ Developed in [Codefresh](https://www.codefresh.io).
 * Supports secret authentication between client and server
 * Supports multiple connections
 * Keeps connections alive
-* Quiet mode (by default) and verbose mode
+* Quiet mode (by default) and silent mode
 
 ### Installation
 
@@ -27,7 +27,7 @@ yarn add nat-traversal
 The relay server is meant to be executed on a server visible on the internet, as follows
 
 ```bash
-nat-traversal-server --relayPort 10080 --servicePort 10081 [--hostname [IP]] [--secret key] [--tls] [--pfx file] [--passphrase passphrase] [--verbose]
+nat-traversal-server --relayPort 10080 --servicePort 10081 [--hostname [IP]] [--secret key] [--tls] [--pfx file] [--passphrase passphrase] [--silent]
 ```
 
 `relayPort` is the port where the relay server will listen for incoming connections from the relay client.
@@ -38,12 +38,12 @@ Optionally, `hostname` specifies the IP address to listen at (bind to). Node.js 
 `tls` option enables secure communication with relay client using TLS.
 `pfx` option specifies a private key file used to establish TLS.
 `passphrase` specifies password used to protect private key.
-`verbose` outputs logs as the server is executed.
+`silent` outputs logs as the server is executed.
 
 The relay client is meant to be executed on a machine behind a NAT, as follows
 
 ```bash
-nat-traversal-client --host HIDDENSERVICE --port 80 --relayHost host --relayPort port [--numConn count] [--secret key] [--tls] [--rejectUnauthorized] [--verbose]
+nat-traversal-client --host HIDDENSERVICE --port 80 --relayHost host --relayPort port [--numConn count] [--secret key] [--tls] [--rejectUnauthorized] [--silent]
 ```
 
 `host` is any server visible to the machine behind the NAT.
@@ -58,7 +58,7 @@ lead to denial of service.
 `secret` specifies a shared secret key relay client sends to server for the purpose of authorization.
 `tls` enables secure TLS communication with the relay server.
 `rejectUnauthorized` enables checking for valid server certificate.
-`verbose` outputs logs as the client is executed.
+`silent` outputs logs as the client is executed.
 
 ## Library Usage
 
@@ -76,7 +76,7 @@ const natTraversalServer =
             pfx: "/path/to/pfx/file",
             passphrase: "password of pfx file",
             secret: "a secret sent to the server",
-            verbose: false
+            silent: false
         }
     );
 natTraversalServer.start();
@@ -102,7 +102,7 @@ const natTraversalClient =
             numConn: 5,
             tls: true,
             secret: "a secret sent to the server",
-            verbose: false
+            silent: false
         }
     );
 natTraversalServer.start();
