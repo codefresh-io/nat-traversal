@@ -34,9 +34,6 @@ class SocketPipe {
 
   start() {
 
-    // Do we want timeouts?
-    this._prepareTimeoutHandler();
-
     // Begin handling events
     this._registerSocketEventHandlers();
 
@@ -61,6 +58,9 @@ class SocketPipe {
 
     // Configure socket for keeping connections alive
     this.pairedSocket.setKeepAlive(true, 120 * 1000);
+    if (this.options.timeout) {
+      this.pairedSocket.setTimeout(this.options.timeout);
+    }
 
     // If we have any data in the buffer, write it
     this._writeBuffer();
@@ -70,6 +70,9 @@ class SocketPipe {
 
     // Configure socket for keeping connections alive
     this.socket.setKeepAlive(true, 120 * 1000);
+    if (this.options.timeout) {
+      this.socket.setTimeout(this.options.timeout);
+    }
 
     // Verify authorization immediately, if we can. If we can't, this will do nothing
     this._verifyAuthorization();
@@ -133,27 +136,6 @@ class SocketPipe {
         console.error(`[${this}] Socket error: ${err}`);
       },
     );
-  }
-
-  _prepareTimeoutHandler() {
-
-    if (!this.options.timeout) {
-      return;
-    }
-
-    setTimeout(
-      () => {
-        if (this.options.secret) {
-
-          // Timeout?
-          console.error(`[${this}] Closing socket due to timeout.`);
-
-          this.terminate();
-        }
-      },
-      this.options.timeout,
-    );
-
   }
 
   _verifyAuthorization() {
@@ -334,8 +316,6 @@ class SocketListener {
         commonName: this.options.tlsCommonName,
       });
 
-      console.log(keys);
-
       tlsOptions = {
         key: keys.serviceKey,
         cert: keys.certificate,
@@ -481,14 +461,14 @@ class NATTraversalServer {
     relayHost,
     relayPort,
     options = {
-      publicTimeout: 20000,
+      publicTimeout: 120000,
       publicTls: false,
       publicCertCN: null,
       publicPfx: null,
       publicPassphrase: null,
       publicKey: null,
       publicCert: null,
-      relayTimeout: 20000,
+      relayTimeout: 120000,
       relayCertCN: null,
       relayTls: true,
       relayPfx: null,

@@ -87,14 +87,15 @@ Create and start a NAT traversal server thus:
 const { NATTraversalServer } = require('nat-traversal');
 const natTraversalServer =
     new NATTraversalServer(
+        "0.0.0.0",
         10080,
+        "0.0.0.0",
         10081,
         {
-            host: "0.0.0.0",
-            tls: true,
-            pfx: "/path/to/pfx/file",
-            passphrase: "password of pfx file",
-            secret: "a secret sent to the server",
+            relayTls: true,
+            relayPfx: "/path/to/pfx/file",
+            relayPassphrase: "password of pfx file",
+            relaySecret: "a secret sent to the server",
             silent: false
         }
     );
@@ -113,13 +114,14 @@ Create and start a NAT traversal client thus:
 const { NATTraversalClient } = require('nat-traversal');
 const natTraversalClient =
     new NATTraversalClient(
-        "hostname",
+        "target.service.address.internal",
         80,
-        "relayserver",
+        "relay.server.address.com",
         10080,
         {
-            numConn: 5,
-            tls: true,
+            relaynumConn: 5,
+            relayTls: true,
+            relayVerifyCert: true,
             secret: "a secret sent to the server",
             silent: false
         }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+const { addTimestampToConsole } = require('./utils');
 
 const { argv } = require('optimist')
   .usage('Usage: $0 ' +
@@ -23,6 +24,8 @@ const options = {
   relayNumConn: argv.relayNumConn,
   silent: argv.silent,
 };
+
+addTimestampToConsole();
 
 if (!options.silent) {
   console.log('Starting NAT traversal client.');

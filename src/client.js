@@ -55,6 +55,9 @@ class SocketPipe {
 
             // Configure socket for keeping connections alive
             this.relaySocket.setKeepAlive(true, 120 * 1000);
+            if (this.options.relayTimeout) {
+              this.relaySocket.setTimeout(this.options.relayTimeout);
+            }
 
             this._requestAuthorization();
           },
@@ -79,6 +82,9 @@ class SocketPipe {
 
           // Configure socket for keeping connections alive
           this.relaySocket.setKeepAlive(true, 120 * 1000);
+          if (this.options.relayTimeout) {
+            this.relaySocket.setTimeout(this.options.relayTimeout);
+          }
 
           this._requestAuthorization();
 
@@ -144,8 +150,17 @@ class SocketPipe {
       },
     );
 
+    this.relaySocket.on('timeout', () => {
+
+      console.error(`[target:${this.id}] Target socket had timeout after ${this.options.targetTimeout} seconds.`);
+      this.terminate();
+
+    });
+
+
     this.relaySocket.on('error', (error) => {
       console.error(`[relay:${this.id}] Error with relay socket: `, error);
+      this.terminate();
     });
 
   }
@@ -177,6 +192,9 @@ class SocketPipe {
 
     // Configure socket for keeping connections alive
     this.targetSocket.setKeepAlive(true, 120 * 1000);
+    if (this.options.targetTimeout) {
+      this.targetSocket.setTimeout(this.options.targetTimeout);
+    }
 
     // Connected, not pending anymore
     this.targetSocketPending = false;
@@ -250,13 +268,20 @@ class SocketPipe {
 
     });
 
+    this.targetSocket.on('timeout', () => {
+
+      console.error(`[target:${this.id}] Target socket had timeout after ${this.options.targetTimeout} seconds.`);
+      this.terminate();
+
+    });
+
     this.targetSocket.on('error', (hadError) => {
 
       if (hadError) {
         console.error(`[target:${this.id}] Target socket was closed with error: `, hadError);
       }
 
-      this.relaySocket.terminate();
+      this.terminate();
     });
 
   }
@@ -280,10 +305,12 @@ class NATTraversalClient {
   constructor(targetHost, targetPort, relayHost, relayPort, options = {
     targetTls: false,
     targetVerifyCert: true,
+    targetTimeout: 120000,
     relayTls: true,
     relayVerifyCert: false,
     relaySecret: null,
     relayNumConn: 1,
+    relayTimeout: 120000,
     silent: false,
   }) {
 
