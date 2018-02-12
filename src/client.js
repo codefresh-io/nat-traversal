@@ -1,4 +1,5 @@
 const util = require('util');
+const fs = require('fs');
 const { EventEmitter } = require('events');
 const net = require('net');
 const tls = require('tls');
@@ -233,6 +234,7 @@ class SocketPipe {
           this.targetPort,
           this.targetHost,
           {
+            ca: (this.options.tlsCaCert ? fs.readFileSync(this.options.targetCaCert) : undefined),
             rejectUnauthorized: this.options.targetVerifyCert,
           },
           () => {
@@ -307,6 +309,7 @@ class NATTraversalClient {
   constructor(targetHost, targetPort, relayHost, relayPort, options = {
     targetTls: false,
     targetVerifyCert: true,
+    targetCaCert: null,
     targetTimeout: 120000,
     relayTls: true,
     relayVerifyCert: false,
