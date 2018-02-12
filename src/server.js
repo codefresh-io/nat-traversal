@@ -325,13 +325,17 @@ class SocketListener {
       });
 
       tlsOptions = {
-        key: keys.serviceKey,
+        key: keys.clientKey,
         cert: keys.certificate,
-        ca: this.options.tlsCaCert,
-        requestCert: this.options.tlsRequestCert,
-        rejectUnauthorized: this.options.tlsRequestCert,
+        ca: keys.serviceKey,
       };
     }
+
+    tlsOptions = Object.assign({
+      ca: (this.options.tlsCaCert ? fs.readFileSync(this.options.tlsCaCert) : undefined),
+      requestCert: this.options.tlsRequestCert,
+      rejectUnauthorized: this.options.tlsRequestCert,
+    }, tlsOptions);
 
     // Create the
     const createdServer = tls.createServer(
@@ -346,6 +350,10 @@ class SocketListener {
 
       },
     );
+
+    createdServer.on('tlsClientError', (exception) => {
+      console.error(`[${this}] Error creating TLS connection with client: `, exception);
+    });
 
     return createdServer;
   }

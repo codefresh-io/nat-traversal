@@ -5,9 +5,9 @@ const { addTimestampToConsole } = require('./utils');
 const { argv } = require('optimist')
   .usage('Usage: $0 ' +
          '--publicHost [host] --publicPort [port] --relayHost [host] --relayPort [port] [--healthCheckPort [port]]' +
-         '[--publicTimeout [ms]] [--publicTls] [--publicCertCN [host]] [--publicRequestCert] ' +
+         '[--publicTimeout [ms]] [--publicTls] [--publicCertCN [host]] [--publicRequestCert] [--publicCaCert [cert]]' +
          '[--publicPfx [file]] [--publicKey [file]] [--publicCert [file]] [--publicPassphrase [passphrase]] ' +
-         '[--relayTimeout [ms]] [--relayTls] [--relayCertCN [host]] [--relayRequestCert] ' +
+         '[--relayTimeout [ms]] [--relayTls] [--relayCertCN [host]] [--relayRequestCert] [--relayCaCert [cert]]' +
          '[--relayPfx [file]] [--relayKey [file]] [--relayCert [file]] [--relayPassphrase [passphrase]] ' +
          '[--relaySecret [key]] ' +
          '[--silent]')

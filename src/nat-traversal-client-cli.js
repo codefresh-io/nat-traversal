@@ -54,7 +54,7 @@ if (!options.silent) {
       relayConnectionType = 'TLS without cert verification';
     }
     if (options.relayClientCert && options.relayClientKey) {
-      targetConnectionType += ' using client certificate';
+      relayConnectionType += ' using client certificate';
     }
   } else {
     relayConnectionType = 'TCP';
