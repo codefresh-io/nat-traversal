@@ -9,7 +9,7 @@ let socketPipeId = 1;
 
 class SocketPipe {
 
-  constructor(socket, options, type) {
+  constructor(socket, options, type, tunnelKey) {
 
     // This class is an event emitter. Initialize it
     EventEmitter.call(this);
@@ -22,6 +22,7 @@ class SocketPipe {
     this.pairedSocket = undefined;
     this.authorized = false;
     this.type = type;
+    this.tunnelKey = tunnelKey;
 
     // Used only if we are waiting for a secret
     this.buffer = [];
@@ -29,7 +30,7 @@ class SocketPipe {
   }
 
   toString() {
-    return `${this.type}:${this.id}`;
+    return `${this.type}:${this.tunnelKey}:${this.id}`;
   }
 
   start() {
@@ -218,7 +219,6 @@ class SocketPipe {
 
 util.inherits(SocketPipe, EventEmitter);
 
-
 class SocketListener {
 
   constructor(port, options, type) {
@@ -228,9 +228,17 @@ class SocketListener {
 
     this.port = port;
     this.options = options || {};
-    this.pendingSocketPipes = [];
-    this.activeSocketPipes = [];
+    this.pendingSocketPipes = {
+      null: [],
+    };
+    this.activeSocketPipes = {
+      null: [],
+    };
     this.type = type;
+  }
+
+  toString() {
+    return `${this.type}`;
   }
 
   async start() {
@@ -249,20 +257,20 @@ class SocketListener {
     this.relayServer.listen(this.port, this.options.host);
 
     if (!this.options.silent) {
-      console.log(`[${this.type}] Listening on port ${this.port}...`);
+      console.log(`[${this}] Listening on port ${this.port}...`);
     }
   }
 
   _createTCPServer() {
 
     if (!this.options.silent) {
-      console.log(`[${this.type}] Will listen to incoming TCP connections.`);
+      console.log(`[${this}] Will listen to incoming TCP connections.`);
     }
 
     return net.createServer((socket) => {
 
       if (!this.options.silent) {
-        console.log(`[${this.type}] Incoming TCP connection from ${socket.remoteAddress}:${socket.remotePort}`);
+        console.log(`[${this}] Incoming TCP connection from ${socket.remoteAddress}:${socket.remotePort}`);
       }
 
       this._createSocketPipe(socket, this.type);
@@ -273,14 +281,14 @@ class SocketListener {
   async _createTLSServer() {
 
     if (!this.options.silent) {
-      console.log(`[${this.type}] Will listen to incoming TLS connections.`);
+      console.log(`[${this}] Will listen to incoming TLS connections.`);
     }
 
     let tlsOptions;
     if (this.options.pfx) {
 
       if (!this.options.silent) {
-        console.log(`[${this.type}] Using pfx file: ${this.options.pfx}`);
+        console.log(`[${this}] Using pfx file: ${this.options.pfx}`);
       }
 
       tlsOptions = {
@@ -291,7 +299,7 @@ class SocketListener {
     } else if (this.options.key && this.options.cert) {
 
       if (!this.options.silent) {
-        console.log(`[${this.type}] Using cert file: ${this.options.cert} and key file ${this.options.key}`);
+        console.log(`[${this}] Using cert file: ${this.options.cert} and key file ${this.options.key}`);
       }
 
       tlsOptions = {
@@ -303,8 +311,8 @@ class SocketListener {
     } else {
 
       if (!this.options.silent) {
-        console.log(`[${this.type}] No pfx or key/cert configured - autogenerating TLS key/cert pair.`);
-        console.log(`[${this.type}] Self-signing key/cert for common name ${this.options.tlsCommonName} ` +
+        console.log(`[${this}] No pfx or key/cert configured - autogenerating TLS key/cert pair.`);
+        console.log(`[${this}] Self-signing key/cert for common name ${this.options.tlsCommonName} ` +
                     'that will expire in 7 days.');
       }
 
@@ -319,6 +327,8 @@ class SocketListener {
       tlsOptions = {
         key: keys.serviceKey,
         cert: keys.certificate,
+        requestCert: this.options.tlsRequestCert,
+        rejectUnauthorized: this.options.tlsRequestCert,
       };
     }
 
@@ -328,7 +338,7 @@ class SocketListener {
       (socket) => {
 
         if (!this.options.silent) {
-          console.log(`[${this.type}] Incoming TLS connection from ${socket.remoteAddress}:${socket.remotePort}`);
+          console.log(`[${this}] Incoming TLS connection from ${socket.remoteAddress}:${socket.remotePort}`);
         }
 
         this._createSocketPipe(socket, this.type);
@@ -341,6 +351,11 @@ class SocketListener {
 
   _createSocketPipe(socket, type) {
 
+    let tunnelKey = null;
+    if (type === 'tls') {
+      tunnelKey = this.options.fnCertCnToTunnelKey(socket.getPeerCertificate().subject.CN);
+    }
+
     const newSocketPipe = new SocketPipe(
       socket,
       {
@@ -349,6 +364,7 @@ class SocketListener {
         silent: this.options.silent,
       },
       type,
+      tunnelKey,
     );
 
     newSocketPipe.on('authorized', () => {
@@ -372,14 +388,14 @@ class SocketListener {
   activateSocketPipe(otherSocketListener, connectingSocketPipe) {
 
     // Do we have a pending socketPipe waiting?
-    if (this._hasPendingSocketPipes()) {
+    if (this._hasPendingSocketPipes(connectingSocketPipe.tunnelKey)) {
 
       // Get the current pending socketPipe
-      const pendingSocketPipe = this._getPendingSocketPipe();
+      const pendingSocketPipe = this._getPendingSocketPipe(connectingSocketPipe.tunnelKey);
 
       if (!this.options.silent) {
-        console.log(`[${this.type}] Activating pending SocketPipe: connecting SocketPipes ${pendingSocketPipe
-        } and ${connectingSocketPipe}`);
+        console.log(`[${this}] Activating pending SocketPipe: connecting SocketPipes ` +
+                    `${pendingSocketPipe} and ${connectingSocketPipe}`);
       }
 
       // Pair the connecting socketPipe with the pending socketPipe, allow data flow in one direction
@@ -403,55 +419,71 @@ class SocketListener {
 
   }
 
-  _getPendingSocketPipe() {
-    const pendingSocketPipe = this.pendingSocketPipes[0];
-    this.pendingSocketPipes.splice(0, 1);
+  _hasPendingSocketPipes(tunnelKey = null) {
+    return tunnelKey in this.pendingSocketPipes && this.pendingSocketPipes[tunnelKey].length > 0;
+  }
+
+  _getPendingSocketPipe(tunnelKey = null) {
+    const pendingSocketPipe = this.pendingSocketPipes[tunnelKey].splice(0, 1);
     return pendingSocketPipe;
   }
 
   _addActiveSocketPipe(socketPipe) {
-    this.activeSocketPipes.push(socketPipe);
+    const { tunnelKey } = socketPipe;
+    if (!(tunnelKey in this.activeSocketPipes)) {
+      this.activeSocketPipes[tunnelKey] = [];
+    }
+    this.activeSocketPipes[tunnelKey].push(socketPipe);
   }
 
   _addPendingSocketPipe(socketPipe) {
-    this.pendingSocketPipes.push(socketPipe);
+    const { tunnelKey } = socketPipe;
+    if (!(tunnelKey in this.pendingSocketPipes)) {
+      this.pendingSocketPipes[tunnelKey] = [];
+    }
+    this.pendingSocketPipes[tunnelKey].push(socketPipe);
   }
 
   _removeSocketPipe(newSocketPipe) {
-    let i = this.pendingSocketPipes.indexOf(newSocketPipe);
-    if (i !== -1) {
-      this.pendingSocketPipes.splice(i, 1);
-    } else {
-      i = this.activeSocketPipes.indexOf(newSocketPipe);
+    const { tunnelKey } = newSocketPipe;
+
+    if (tunnelKey in this.pendingSocketPipes) {
+      const i = this.pendingSocketPipes[tunnelKey].indexOf(newSocketPipe);
       if (i !== -1) {
-        this.activeSocketPipes.splice(i, 1);
+        this.pendingSocketPipes[tunnelKey].splice(i, 1);
       }
     }
-  }
 
-  _hasPendingSocketPipes() {
-    return this.pendingSocketPipes.length > 0;
+    if (tunnelKey in this.activeSocketPipes) {
+      const i = this.activeSocketPipes[tunnelKey].indexOf(newSocketPipe);
+      if (i !== -1) {
+        this.activeSocketPipes[tunnelKey].splice(i, 1);
+      }
+    }
   }
 
   terminate() {
 
     if (!this.options.silent) {
-      console.log(`[${this.type}] Terminating SocketListener.`);
+      console.log(`[${this}] Terminating SocketListener.`);
     }
 
     this.relayServer.close();
-    for (const socketPipe of this.pendingSocketPipes) {
-      socketPipe.terminate();
+    for (const tunnelKey of Object.keys(this.pendingSocketPipes)) {
+      for (const socketPipe of this.pendingSocketPipes[tunnelKey]) {
+        socketPipe.terminate();
+      }
     }
-    for (const socketPipe of this.activeSocketPipes) {
-      socketPipe.terminate();
+    for (const tunnelKey of Object.keys(this.activeSocketPipes)) {
+      for (const socketPipe of this.activeSocketPipes[tunnelKey]) {
+        socketPipe.terminate();
+      }
     }
     this.relayServer.unref();
   }
 }
 
 util.inherits(SocketListener, EventEmitter);
-
 
 class NATTraversalServer {
 
@@ -464,12 +496,14 @@ class NATTraversalServer {
       publicTimeout: 120000,
       publicTls: false,
       publicCertCN: null,
+      publicRequestCert: null,
       publicPfx: null,
       publicPassphrase: null,
       publicKey: null,
       publicCert: null,
       relayTimeout: 120000,
       relayCertCN: null,
+      relayRequestCert: null,
       relayTls: true,
       relayPfx: null,
       relayPassphrase: null,
@@ -477,9 +511,15 @@ class NATTraversalServer {
       relayCert: null,
       relaySecret: null,
       silent: false,
+      fnCertCnToTunnelKey: (certCn) => { return certCn; },
     },
   ) {
     this.options = options || {};
+
+    if (!this.options.fnCertCnToTunnelKey) {
+      this.options.fnCertCnToTunnelKey = (certCn) => { return certCn; };
+    }
+
     this.publicHost = publicHost;
     this.publicPort = publicPort;
     this.relayHost = relayHost;
@@ -496,12 +536,14 @@ class NATTraversalServer {
           timeout: this.options.relayTimeout,
           tls: this.options.relayTls,
           tlsCommonName: this.options.relayCertCN,
+          tlsRequestCert: this.options.relayRequestCert,
           pfx: this.options.relayPfx,
           passphrase: this.options.relayPassphrase,
           key: this.options.relayKey,
           cert: this.options.relayCert,
           secret: this.options.relaySecret,
           silent: this.options.silent,
+          fnCertCnToTunnelKey: this.options.fnCertCnToTunnelKey,
         },
         'relay',
       );
@@ -520,12 +562,14 @@ class NATTraversalServer {
           timeout: this.options.publicTimeout,
           tls: this.options.publicTls,
           tlsCommonName: this.options.publicCertCN,
+          tlsRequestCert: this.options.publicRequestCert,
           pfx: this.options.publicPfx,
           passphrase: this.options.publicPassphrase,
           key: this.options.publicKey,
           cert: this.options.publicCert,
           secret: null,
           silent: this.options.silent,
+          fnCertCnToTunnelKey: this.options.fnCertCnToTunnelKey,
         },
         'public',
       );

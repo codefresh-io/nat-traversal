@@ -5,12 +5,15 @@ const { argv } = require('optimist')
   .usage('Usage: $0 ' +
          '--targetHost [host] --targetPort [port] --relayHost [host] --relayPort [port] ' +
          '[--targetTls] [--targetVerifyCert] [--relayTls] [--relayVerifyCert] ' +
+         '[--relayClientCert [cert]] [--relayClientKey [key]] ' +
          '[--relaySecret [key]] [--relayNumConn [count]] [--silent]')
   .demand(['targetHost', 'targetPort', 'relayHost', 'relayPort'])
   .default('targetTls', false)
   .default('targetVerifyCert', true)
   .default('relayTls', true)
   .default('relayVerifyCert', true)
+  .default('relayClientCert', null)
+  .default('relayClientKey', null)
   .default('relaySecret', null)
   .default('relayNumConn', 1)
   .default('silent', false);
@@ -20,6 +23,8 @@ const options = {
   targetVerifyCert: argv.targetVerifyCert,
   relayTls: argv.relayTls,
   relayVerifyCert: argv.relayVerifyCert,
+  relayClientCert: argv.relayClientCert,
+  relayClientKey: argv.relayClientKey,
   relaySecret: argv.relaySecret,
   relayNumConn: argv.relayNumConn,
   silent: argv.silent,
@@ -47,6 +52,9 @@ if (!options.silent) {
       relayConnectionType = 'TLS with cert verification';
     } else {
       relayConnectionType = 'TLS without cert verification';
+    }
+    if (options.relayClientCert && options.relayClientKey) {
+      targetConnectionType += ' using client certificate';
     }
   } else {
     relayConnectionType = 'TCP';

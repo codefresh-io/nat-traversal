@@ -5,9 +5,9 @@ const { addTimestampToConsole } = require('./utils');
 const { argv } = require('optimist')
   .usage('Usage: $0 ' +
          '--publicHost [host] --publicPort [port] --relayHost [host] --relayPort [port] [--healthCheckPort [port]]' +
-         '[--publicTimeout [ms]] [--publicTls] [--publicCertCN [host]] ' +
+         '[--publicTimeout [ms]] [--publicTls] [--publicCertCN [host]] [--publicRequestCert] ' +
          '[--publicPfx [file]] [--publicKey [file]] [--publicCert [file]] [--publicPassphrase [passphrase]] ' +
-         '[--relayTimeout [ms]] [--relayTls] [--relayCertCN [host]] ' +
+         '[--relayTimeout [ms]] [--relayTls] [--relayCertCN [host]] [--relayRequestCert] ' +
          '[--relayPfx [file]] [--relayKey [file]] [--relayCert [file]] [--relayPassphrase [passphrase]] ' +
          '[--relaySecret [key]] ' +
          '[--silent]')
@@ -16,6 +16,7 @@ const { argv } = require('optimist')
   .default('publicHost', '0.0.0.0')
   .default('publicTimeout', 120000)
   .default('publicTls', false)
+  .default('publicRequestCert', false)
   .string('publicCertCN')
   .string('publicPfx')
   .string('publicKey')
@@ -25,6 +26,7 @@ const { argv } = require('optimist')
   .default('relayHost', '0.0.0.0')
   .default('relayTimeout', 120000)
   .default('relayTls', true)
+  .default('relayRequestCert', false)
   .string('relayCertCN')
   .string('relayPfx')
   .string('relayKey')
@@ -45,6 +47,7 @@ const options = {
   publicKey: argv.publicKey,
   publicCert: argv.publicCert,
   publicCertCN: argv.publicCertCN,
+  publicRequestCert: argv.publicRequestCert,
   relayTimeout: argv.relayTimeout,
   relayTls: argv.relayTls,
   relayPfx: argv.relayPfx,
@@ -52,8 +55,10 @@ const options = {
   relayKey: argv.relayKey,
   relayCert: argv.relayCert,
   relayCertCN: argv.relayCertCN,
+  relayRequestCert: argv.relayRequestCert,
   relaySecret: argv.relaySecret,
   silent: argv.silent,
+  fnCertCnToTunnelKey: (certCn) => { return certCn; },
 };
 
 if (!options.silent) {
@@ -62,6 +67,10 @@ if (!options.silent) {
   let publicConnectionType;
   if (options.publicTls) {
     publicConnectionType = 'TLS';
+
+    if (options.publicRequestCert) {
+      publicConnectionType += ' with client certificate verification';
+    }
   } else {
     publicConnectionType = 'TCP';
   }
@@ -69,6 +78,10 @@ if (!options.silent) {
   let relayConnectionType;
   if (options.relayTls) {
     relayConnectionType = 'TLS';
+
+    if (options.relayRequestCert) {
+      relayConnectionType += ' with client certificate verification';
+    }
   } else {
     relayConnectionType = 'TCP';
   }

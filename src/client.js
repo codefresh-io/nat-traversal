@@ -47,6 +47,8 @@ class SocketPipe {
           this.relayHost,
           {
             rejectUnauthorized: this.options.relayVerifyCert,
+            key: this.options.relayClientKey,
+            cert: this.options.relayClientCert,
           },
           () => {
             if (!this.options.silent) {
@@ -308,6 +310,8 @@ class NATTraversalClient {
     targetTimeout: 120000,
     relayTls: true,
     relayVerifyCert: false,
+    relayClientCert: null,
+    relayClientKey: null,
     relaySecret: null,
     relayNumConn: 1,
     relayTimeout: 120000,
