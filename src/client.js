@@ -47,7 +47,9 @@ class SocketPipe {
           this.relayPort,
           this.relayHost,
           {
-            ca: (this.options.relayCaCert ? fs.readFileSync(this.options.relayCaCert) : undefined),
+            ca: (
+              this.options.relayCaCert ? fs.readFileSync(this.options.relayCaCert, 'utf8') : undefined
+            ),
             rejectUnauthorized: this.options.relayVerifyCert,
             key: this.options.relayClientKey,
             cert: this.options.relayClientCert,
@@ -235,7 +237,9 @@ class SocketPipe {
           this.targetPort,
           this.targetHost,
           {
-            ca: (this.options.targetCaCert ? fs.readFileSync(this.options.targetCaCert) : undefined),
+            ca: (
+              this.options.targetCaCert ? fs.readFileSync(this.options.targetCaCert, 'utf8') : undefined
+            ),
             rejectUnauthorized: this.options.targetVerifyCert,
           },
           () => {

@@ -303,8 +303,8 @@ class SocketListener {
       }
 
       tlsOptions = {
-        key: fs.readFileSync(this.options.key),
-        cert: fs.readFileSync(this.options.cert),
+        key: fs.readFileSync(this.options.key, 'utf8'),
+        cert: fs.readFileSync(this.options.cert, 'utf8'),
         passphrase: this.options.passphrase,
       };
 
@@ -332,7 +332,9 @@ class SocketListener {
     }
 
     tlsOptions = Object.assign({
-      ca: (this.options.tlsCaCert ? fs.readFileSync(this.options.tlsCaCert) : undefined),
+      ca: (
+        this.options.tlsCaCert ? fs.readFileSync(this.options.tlsCaCert, 'utf8') : undefined
+      ),
       requestCert: this.options.tlsRequestCert,
       rejectUnauthorized: this.options.tlsRequestCert,
     }, tlsOptions);
@@ -440,7 +442,9 @@ class SocketListener {
 
   _addActiveSocketPipe(socketPipe) {
     const { tunnelKey } = socketPipe;
-    if (!(tunnelKey in this.activeSocketPipes)) {
+    if (!(
+      tunnelKey in this.activeSocketPipes
+    )) {
       this.activeSocketPipes[tunnelKey] = [];
     }
     this.activeSocketPipes[tunnelKey].push(socketPipe);
@@ -448,7 +452,9 @@ class SocketListener {
 
   _addPendingSocketPipe(socketPipe) {
     const { tunnelKey } = socketPipe;
-    if (!(tunnelKey in this.pendingSocketPipes)) {
+    if (!(
+      tunnelKey in this.pendingSocketPipes
+    )) {
       this.pendingSocketPipes[tunnelKey] = [];
     }
     this.pendingSocketPipes[tunnelKey].push(socketPipe);
