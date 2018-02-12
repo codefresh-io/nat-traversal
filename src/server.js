@@ -361,7 +361,7 @@ class SocketListener {
   _createSocketPipe(socket, type) {
 
     let tunnelKey = null;
-    if (type === 'tls') {
+    if (this.options.tls) {
       tunnelKey = this.options.fnCertCnToTunnelKey(socket.getPeerCertificate().subject.CN);
     }
 
