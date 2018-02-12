@@ -4,7 +4,8 @@ const { addTimestampToConsole } = require('./utils');
 const { argv } = require('optimist')
   .usage('Usage: $0 ' +
          '--targetHost [host] --targetPort [port] --relayHost [host] --relayPort [port] ' +
-         '[--targetTls] [--targetCaCert [file]] [--targetVerifyCert] [--relayTls] [--relayVerifyCert] ' +
+         '[--targetTls] [--targetCaCert [file]] [--targetVerifyCert] ' +
+         '[--relayTls] [--relayCaCert [file]] [--relayVerifyCert] ' +
          '[--relayClientCert [cert]] [--relayClientKey [key]] ' +
          '[--relaySecret [key]] [--relayNumConn [count]] [--silent]')
   .demand(['targetHost', 'targetPort', 'relayHost', 'relayPort'])
@@ -13,6 +14,7 @@ const { argv } = require('optimist')
   .string('targetCaCert')
   .default('relayTls', true)
   .default('relayVerifyCert', true)
+  .string('relayCaCert')
   .default('relayClientCert', null)
   .default('relayClientKey', null)
   .default('relaySecret', null)
@@ -25,6 +27,7 @@ const options = {
   targetCaCert: argv.targetCaCert,
   relayTls: argv.relayTls,
   relayVerifyCert: argv.relayVerifyCert,
+  relayCaCert: argv.relayCaCert,
   relayClientCert: argv.relayClientCert,
   relayClientKey: argv.relayClientKey,
   relaySecret: argv.relaySecret,

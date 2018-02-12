@@ -47,6 +47,7 @@ class SocketPipe {
           this.relayPort,
           this.relayHost,
           {
+            ca: (this.options.relayCaCert ? fs.readFileSync(this.options.relayCaCert) : undefined),
             rejectUnauthorized: this.options.relayVerifyCert,
             key: this.options.relayClientKey,
             cert: this.options.relayClientCert,
@@ -234,7 +235,7 @@ class SocketPipe {
           this.targetPort,
           this.targetHost,
           {
-            ca: (this.options.tlsCaCert ? fs.readFileSync(this.options.targetCaCert) : undefined),
+            ca: (this.options.targetCaCert ? fs.readFileSync(this.options.targetCaCert) : undefined),
             rejectUnauthorized: this.options.targetVerifyCert,
           },
           () => {
@@ -313,6 +314,7 @@ class NATTraversalClient {
     targetTimeout: 120000,
     relayTls: true,
     relayVerifyCert: false,
+    relayCaCert: null,
     relayClientCert: null,
     relayClientKey: null,
     relaySecret: null,
