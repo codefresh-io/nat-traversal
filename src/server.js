@@ -327,6 +327,7 @@ class SocketListener {
       tlsOptions = {
         key: keys.serviceKey,
         cert: keys.certificate,
+        ca: this.options.tlsCaCert,
         requestCert: this.options.tlsRequestCert,
         rejectUnauthorized: this.options.tlsRequestCert,
       };
@@ -424,7 +425,8 @@ class SocketListener {
   }
 
   _getPendingSocketPipe(tunnelKey = null) {
-    const pendingSocketPipe = this.pendingSocketPipes[tunnelKey].splice(0, 1);
+    const pendingSocketPipe = this.pendingSocketPipes[tunnelKey][0];
+    this.pendingSocketPipes[tunnelKey].splice(0, 1);
     return pendingSocketPipe;
   }
 
@@ -497,6 +499,7 @@ class NATTraversalServer {
       publicTls: false,
       publicCertCN: null,
       publicRequestCert: null,
+      publicCaCert: null,
       publicPfx: null,
       publicPassphrase: null,
       publicKey: null,
@@ -504,6 +507,7 @@ class NATTraversalServer {
       relayTimeout: 120000,
       relayCertCN: null,
       relayRequestCert: null,
+      relayCaCert: null,
       relayTls: true,
       relayPfx: null,
       relayPassphrase: null,
@@ -537,6 +541,7 @@ class NATTraversalServer {
           tls: this.options.relayTls,
           tlsCommonName: this.options.relayCertCN,
           tlsRequestCert: this.options.relayRequestCert,
+          tlsCaCert: this.options.relayCaCert,
           pfx: this.options.relayPfx,
           passphrase: this.options.relayPassphrase,
           key: this.options.relayKey,
@@ -563,6 +568,7 @@ class NATTraversalServer {
           tls: this.options.publicTls,
           tlsCommonName: this.options.publicCertCN,
           tlsRequestCert: this.options.publicRequestCert,
+          tlsCaCert: this.options.publicCaCert,
           pfx: this.options.publicPfx,
           passphrase: this.options.publicPassphrase,
           key: this.options.publicKey,

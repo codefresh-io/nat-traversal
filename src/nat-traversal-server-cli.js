@@ -22,6 +22,7 @@ const { argv } = require('optimist')
   .string('publicKey')
   .string('publicCert')
   .string('publicPassphrase')
+  .string('publicCaCert')
 
   .default('relayHost', '0.0.0.0')
   .default('relayTimeout', 120000)
@@ -32,6 +33,8 @@ const { argv } = require('optimist')
   .string('relayKey')
   .string('relayCert')
   .string('relayPassphrase')
+  .string('relayCaCert')
+
   .default('healthCheckPort', null)
 
   .default('relaySecret', null)
@@ -48,6 +51,7 @@ const options = {
   publicCert: argv.publicCert,
   publicCertCN: argv.publicCertCN,
   publicRequestCert: argv.publicRequestCert,
+  publicCaCert: argv.publicCaCert,
   relayTimeout: argv.relayTimeout,
   relayTls: argv.relayTls,
   relayPfx: argv.relayPfx,
@@ -56,6 +60,7 @@ const options = {
   relayCert: argv.relayCert,
   relayCertCN: argv.relayCertCN,
   relayRequestCert: argv.relayRequestCert,
+  relayCaCert: argv.relayCaCert,
   relaySecret: argv.relaySecret,
   silent: argv.silent,
   fnCertCnToTunnelKey: (certCn) => { return certCn; },
