@@ -42,14 +42,24 @@ class SocketPipe {
         console.log(`[relay:${this.id}] Socket pipe will use TLS connection to connect to relay server.`);
       }
 
+      const caCert = (
+        this.options.relayCaCert ? fs.readFileSync(this.options.relayCaCert, 'utf8') : undefined
+      );
+
+      if (!this.options.silent) {
+        if (caCert) {
+          console.log(`[relay:${this.id}] Using inutted CA certificate (${this.options.relayCaCert}).`);
+        } else {
+          console.log(`[relay:${this.id}] Using default CA certificates.`);
+        }
+      }
+
       this.relaySocket =
         tls.connect(
           this.relayPort,
           this.relayHost,
           {
-            ca: (
-              this.options.relayCaCert ? fs.readFileSync(this.options.relayCaCert, 'utf8') : undefined
-            ),
+            ca: caCert,
             rejectUnauthorized: this.options.relayVerifyCert,
             key: this.options.relayClientKey,
             cert: this.options.relayClientCert,
