@@ -363,11 +363,11 @@ class SocketListener {
   _createSocketPipe(socket, type) {
 
     let tunnelKey = null;
-    if (this.options.tls) {
+    if (this.options.tls && this.options.tlsRequestCert) {
       const clientCert = socket.getPeerCertificate();
 
-      if (clientCert && clientCert.subjectl) {
-        tunnelKey = this.options.fnCertCnToTunnelKey(clientCert.subjectl.CN);
+      if (clientCert && clientCert.subject) {
+        tunnelKey = this.options.fnCertCnToTunnelKey(clientCert.subject.CN);
       }
     }
 
