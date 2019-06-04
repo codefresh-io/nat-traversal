@@ -17,6 +17,17 @@ Developed in [Codefresh](https://www.codefresh.io).
 * Keeps connections alive
 * Verbose mode (by default) and silent mode
 
+### How It Works
+
+A relay client (implemented by `nat-traversal`) runs on the target machine and makes an outgoing connection to the relay server (implemented by `nat-traversal`).
+The relay server will listen for incoming connections from the relay client. It also will listen for incoming connections from the main client (e.g. the Kubernetes CLI tool).
+
+When the main client connects to the relay server, the connection is tunneled all the way to the relay client, which then opens a connection to the main server (e.g. Kubernetes API endpoint) and extends the tunnel. Thus, you have a tunnel from the main client to the main server.
+
+The connection can be TLS encrypted, and a pre-shared secret key can be used to authorize relay clients (to prevent fake clients).
+
+Basically, all traffic is relayed via a relay server.
+
 ### Installation
 
 To install from <a href="https://www.npmjs.com/package/nat-traversal">npm</a>
