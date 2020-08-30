@@ -130,7 +130,7 @@ const natTraversalClient =
         "relay.server.address.com",
         10080,
         {
-            relaynumConn: 5,
+            relayNumConn: 5,
             relayTls: true,
             relayVerifyCert: true,
             secret: "a secret sent to the server",
